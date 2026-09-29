@@ -40,6 +40,16 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is running on Vercel!' });
 });
 
+// Base route to verify the deployment is working
+app.get('/', (req, res) => {
+  res.send('Backend server is running successfully on Vercel!');
+});
+
+// A standard /api base route
+app.get('/api', (req, res) => {
+  res.json({ message: 'Welcome to the API engine' });
+});
+
 // api routes
 app.use("/api/auth", authRoutes)
 app.use("/api/products", productRoutes)
