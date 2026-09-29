@@ -17,7 +17,7 @@ import { createAccessToken, createRefreshToken, readRefreshToken } from "../util
  * @response {Object} 400 - Validation errors (e.g., password mismatch, email taken)
  * @response {Object} 500 - Internal server error
  */
-export const userRegisterController = async (res, req) => {
+export const userRegisterController = async (req, res) => {
     try {
         const {name, email, password, confirmPassword} = req.body
 
@@ -27,7 +27,6 @@ export const userRegisterController = async (res, req) => {
             })
         }
         
-        // Checking, Is user already exists or not
         const isUserExist = await userModel.findOne({email})
         if(isUserExist){
             return res.status(400).json({
@@ -39,43 +38,38 @@ export const userRegisterController = async (res, req) => {
             })
         }
 
-        // Storing new User in db or we can say "creating account"
         const newUser = await userModel.create({
             name,
             email,
-            passwordHash: bcrypt.hash(password, 10),
+            passwordHash: await bcrypt.hash(password, 10),
         })
 
-        // These creates both the tokens
         const accessToken = createAccessToken(newUser._id)
         const refreshToken = createRefreshToken(newUser._id)
 
-        // These saves refreshToken in db
         newUser.refreshToken = refreshToken
         await newUser.save();
 
-        // Sets refreshToken in cookie and accepts with http
         res.cookie("refreshToken", refreshToken, {httpOnly: true})
 
-
-        res.status(201).json({
+        return res.status(201).json({
             message: "User registered successfully",
             data: {
                 user: {
-                    email: user.email,
-                    name: user.name,
-                    id: user._id,
+                    // 2. FIXED: Changed 'user' to 'newUser' to match your database variable name
+                    email: newUser.email,
+                    name: newUser.name,
+                    id: newUser._id,
                 },
                 accessToken
             }
         })
     } catch (error) {
+        console.error(error);
         return res.status(500).json({
             error: "Internal Server Error"
         })
     }
-
-
 }
 
 
@@ -93,43 +87,49 @@ export const userRegisterController = async (res, req) => {
  */
 export const userLoginController = async (req, res) => {
     try {
+        const { email, password } = req.body;
 
-        const {email, password} = req.body
-
-        // 2. check for valid user with provide email
-        const user = await userModel.findOne({email})
-        if(!user){
+        // 2. Check for valid user with provided email
+        const user = await userModel.findOne({ email }).select("+passwordHash");
+        
+        if (!user) {
             return res.status(401).json({
-                message:"Invalid email or password"
-            })
+                message: "Invalid email or password"
+            });
+        }
+
+        // Add an extra safety check before running bcrypt to prevent crashes
+        if (!user.passwordHash) {
+            console.error(`Database error: User ${email} exists but has no password hash set.`);
+            return res.status(401).json({
+                message: "Invalid email or password"
+            });
         }
 
         // 3. Check for valid password with stored password
-        const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
-        if(!isPasswordValid){
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isPasswordValid) {
             return res.status(401).json({
                 message: "Invalid email or password"
-            })
+            });
         }
 
-        // 4. assign new access and refresh tokens
-        const accessToken = createAccessToken(user._id)
-        const refreshToken = createAccessToken(user._id)
+        // 4. Assign new access and refresh tokens
+        const accessToken = createAccessToken(user._id);
+        const refreshToken = createRefreshToken(user._id); 
 
-        // 5. update refresh token in db
-        await userModel.findByIdAndUpdate({
-            email
-        }, {
+        // 5. Update refresh token in db
+        await userModel.findByIdAndUpdate(user._id, {
             refreshToken
-        })
+        });
 
-        // 6. set refresh token in cookie
+        // 6. Set refresh token in cookie
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true
-        })
+        });
 
         // 7. Send success response back to the client
-        res.status(200).json({
+        return res.status(200).json({
             message: "User loggedIn Successfully",
             data: {
                 user: {
@@ -139,14 +139,15 @@ export const userLoginController = async (req, res) => {
                 },
                 accessToken
             }
-        })
+        });
 
-    } catch {
-        res.status(500).json(
-            { error: 'Internal Server Error ' }
-        );
+    } catch (error) {
+        console.error("Login Server Error:", error); // Recommended: Logs the real crash details to your terminal
+        return res.status(500).json({ 
+            error: 'Internal Server Error' 
+        });
     }
-}
+};
 
 
 /**
@@ -158,71 +159,113 @@ export const userLoginController = async (req, res) => {
  * @returns {Object} 500 - Internal server error
  */
 export const refreshTokenController = async (req, res) => {
+  try {
+    console.log("COOKIES:", req.cookies);
+
     const { refreshToken } = req.cookies;
 
-    if(!refreshToken) {
-        return res.status(401).json({
-            message: "Unauthorized: No refresh token provided"
-        })
+    if (!refreshToken) {
+      return res.status(401).json({
+        message: "Unauthorized: No refresh token provided",
+      });
     }
 
+    const decoded = readRefreshToken(refreshToken);
+    const { userId } = decoded;
+
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Unauthorized: User not found",
+      });
+    }
+
+    // IMPORTANT: no !
+    if (refreshToken !== user.refreshToken) {
+      await userModel.findByIdAndUpdate(user._id, {
+        refreshToken: null,
+      });
+
+      return res.status(401).json({
+        message: "Unauthorized: refresh token mismatch",
+      });
+    }
+
+    const accessToken = createAccessToken(userId);
+    const newRefreshToken = createRefreshToken(userId);
+
+    await userModel.findByIdAndUpdate(user._id, {
+      refreshToken: newRefreshToken,
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? "none"
+          : "lax",
+    });
+
+    return res.status(200).json({
+      message: "Tokens rotated successfully",
+      data: {
+        user: {
+          email: user.email,
+          name: user.name,
+          id: user._id,
+        },
+        accessToken,
+      },
+    });
+  } catch (error) {
+    console.error("REFRESH TOKEN ERROR:", error);
+
+    return res.status(401).json({
+      message: "Invalid refresh Token",
+    });
+  }
+};
+
+export const getMeController = async (req, res) => {
     try {
-        // Verify the refresh token and extract user ID
-        const decoded = readRefreshToken(refreshToken)
-        const {userId} = decoded
+        const userId = req.user._id || req.user.id;
 
-        const user = await userModel.findById(userId)
-
-        if(!refreshToken !== user.refreshToken){
-            await userModel.findByIdAndUpdate(user._id, {refreshToken: null})
-            return res.status(401).json({
-                message: "Unauthorized: refresh token mismatch"
-            })
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User profile record not found." });
         }
 
-        const accessToken = createAccessToken(userId)
-        const newRefreshToken = createRefreshToken(userId)
-
-        await userModel.findByIdAndUpdate(user._id, {refreshToken: newRefreshToken})
-
-        res.cookie("refreshToken", 
-            newRefreshToken, {
-                httpOnly: true
-            }
-        )
-
-        res.status(200).json({
-            message: "Tokens rotated successfully", 
+        return res.status(200).json({
+            message: "User data fetched successfully", 
             data: {
                 user: {
                     email: user.email,
                     name: user.name,
                     id: user._id
-                },
-                accessToken
+                }
             }
-        })
+        });
     } catch (error) {
-        return res.status(401).json({
-            message: "Invalid refresh Token"
-        })
+        console.error("Hydration server breakdown:", error);
+        return res.status(500).json({ error: "Internal Server Error" });
     }
-}
+};
 
+export const logoutController = async (req, res, next) => {
+  try {
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
 
-export const getMeController = async (req, res) => {
-    const {userId} = req.user
-
-    const user = await userModel.findById(userId)
-
-    res.status(200).json({
-        message: "User data fetch successfully", 
-        data: {
-            user: {
-                email: user.email,
-                name: user.name,
-                id: user._id
-            }
-        }
-    })
-}
+    return res.status(200).json({
+      success: true,
+      message: "Logout successful",
+    });
+  } catch (error) {
+    next(error);
+  }
+};

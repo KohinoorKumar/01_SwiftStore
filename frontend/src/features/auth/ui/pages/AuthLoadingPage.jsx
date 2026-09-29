@@ -10,7 +10,7 @@ const AuthLoadingPage = () => {
         </div>
 
         <h1 className="text-xl font-bold text-gray-900">
-          SwiftStore
+          Shopy
         </h1>
 
         <div className="mt-5 flex items-center gap-2">

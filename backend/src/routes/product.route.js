@@ -1,7 +1,8 @@
 import {Router} from 'express'
 import multer from 'multer'
 import { authenticate } from '../middlewares/auth.middleware.js'
-import { createProductController, deleteProduct, getAllProductController, getProductById, updateProduct } from '../controllers/product.controller.js'
+import { createProductController, deleteProductController, getAllProductController, getMyProductsController, getProductById, updateProductController} from '../controllers/product.controller.js'
+import { createProductValidator } from '../validators/product.validator.js'
 
 
 const router = Router()
@@ -27,6 +28,7 @@ router.post("/", authenticate,
 
         next()
     },
+    createProductValidator,
     createProductController)
 
 /**
@@ -37,8 +39,29 @@ router.post("/", authenticate,
  */
 router.get("/", getAllProductController)
 
+router.get("/my-products", authenticate, getMyProductsController)
+
 router.get("/:id", getProductById)
 
-router.put("/:id", authenticate, updateProduct)
-router.delete("/:id", authenticate, deleteProduct)
+router.put(
+  "/:id",
+  authenticate,
+  upload.array("images", 5),
+  (req, res, next) => {
+    req.body?.price &&
+      (req.body.price = JSON.parse(req.body.price));
+
+    req.body?.sizes &&
+      (req.body.sizes = JSON.parse(req.body.sizes));
+
+    req.body?.existingImages &&
+      (req.body.existingImages = JSON.parse(req.body.existingImages));
+
+    next();
+  },
+  updateProductController
+);
+
+
+router.delete("/:id", authenticate, deleteProductController)
 export default router

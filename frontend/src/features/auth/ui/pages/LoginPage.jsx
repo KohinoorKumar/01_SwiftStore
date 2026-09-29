@@ -6,6 +6,7 @@ import {
   EyeOff,
   ShoppingBag,
   User,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuthHook";
 
@@ -32,7 +33,7 @@ const LoginPage = () => {
                 </div>
 
                 <span className="text-2xl font-bold">
-                  Productly
+                  Shopy
                 </span>
               </div>
 
@@ -53,7 +54,7 @@ const LoginPage = () => {
 
             {/* Bottom */}
             <div className="text-sm text-indigo-200">
-              © 2026 Productly. All rights reserved.
+              © 2026 Shopy. All rights reserved.
             </div>
           </div>
 
@@ -91,26 +92,45 @@ const LoginPage = () => {
                   htmlFor="username"
                   className="mb-2 block text-sm font-medium text-slate-700"
                 >
-                  username
+                  Email
                 </label>
 
                 <div className="relative">
-                  <User
+                  <Mail
                     size={19}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                   />
 
                   <input
-                    {...register("username", {
-                      required: "Username is required",
+                    {...register("email", {
+                      required: "Email is required",
+                      validate: {
+                        noSpaces: (v) =>
+                          !/\s/.test(v) ||
+                          "Please remove any spaces from your email address.",
+                        hasAt: (v) =>
+                          v.includes("@") ||
+                          "Please include an '@' in the email address.",
+                        hasDomain: (v) =>
+                          /@[a-zA-Z0-9.-]+/.test(v) ||
+                          "Please include a domain after the '@'.",
+                        hasExtension: (v) =>
+                          /\.[a-zA-Z]{2,}$/.test(v) ||
+                          "Please include a valid extension like .com or .org.",
+                        fullMatch: (v) =>
+                          /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(
+                            v,
+                          ) ||
+                          "Please enter a valid email address (e.g., name@example.com).",
+                      },
                     })}
-                    id="username"
-                    type="text"
-                    placeholder="username"
+                    id="email"
+                    type="email"
+                    placeholder="email"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                   />
                 </div>
-                {errors.username && <p className="text-red-600">{errors.username.message}</p>}
+                {errors.email && <p className="text-red-600">{errors.email.message}</p>}
               </div>
 
               {/* Password */}

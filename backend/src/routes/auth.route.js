@@ -1,5 +1,7 @@
 import {Router} from 'express'
-import { getMeController, refreshTokenController, userLoginController, userRegisterController } from '../controllers/auth.controller.js'
+import { getMeController, logoutController, refreshTokenController, userLoginController, userRegisterController } from '../controllers/auth.controller.js'
+import { authenticate } from '../middlewares/auth.middleware.js'
+import { userLoginValidator, userRegisterValidator } from '../validators/auth.validators.js'
 
 const router = Router()
 
@@ -13,7 +15,7 @@ const router = Router()
  * 
  * @response res.status = 201 (if successful)
  */
-router.post("/register", userRegisterController)
+router.post("/register", userRegisterValidator,  userRegisterController)
 
 /**
  * @method  POST
@@ -25,14 +27,15 @@ router.post("/register", userRegisterController)
  * 
  * @returns res.status = 200 (if successful)
  */
-router.post("/login", userLoginController)
+router.post("/login", userLoginValidator, userLoginController)
 
 
 router.post("/refresh-token", refreshTokenController)
 
 
-router.post("/me", getMeController)
+router.get("/me",  authenticate, getMeController)
 
+router.post("/logout", logoutController);
 
 
 export default router

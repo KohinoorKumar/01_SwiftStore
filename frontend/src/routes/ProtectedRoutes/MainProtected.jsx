@@ -9,7 +9,7 @@ const MainProtected = () => {
   const {isAuthenticated, isLoading} = useSelector((state) => state.auth)
 
 
-  if(isLoading) return <AuthLoadingPage/>
+  // if(isLoading) return <AuthLoadingPage/>
 
   if(!isAuthenticated){
     return <Navigate to={"/"}/>

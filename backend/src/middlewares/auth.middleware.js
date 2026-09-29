@@ -4,6 +4,7 @@ import { readAccessToken } from "../utils/auth.util.js"
 export const authenticate = async(req, res, next) => {
 
     const accessToken = req.headers.authorization?.split(" ")[1]
+    console.log("Auth Header", req.headers.authorization)
 
     if(!accessToken) {
         return res.status(400).json({
@@ -14,7 +15,9 @@ export const authenticate = async(req, res, next) => {
     try {
         const decoded = readAccessToken(accessToken)
 
-        req.user = decoded
+        req.user = {
+            _id: decoded.id
+        }
 
         next()
     } catch(error) {

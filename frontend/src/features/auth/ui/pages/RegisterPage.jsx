@@ -58,7 +58,7 @@ const RegisterPage = () => {
               </div>
 
               <span className="text-xl font-bold text-slate-900">
-                Productly
+                Shopy
               </span>
             </div>
 

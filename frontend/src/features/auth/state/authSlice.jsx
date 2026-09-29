@@ -1,30 +1,47 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-
-// 1. Define the initial state using that type
 const initialState = {
   user: null,
+  token: localStorage.getItem("accessToken") || null,
   isAuthenticated: false,
   isLoading: true,
 };
 
 const authSlice = createSlice({
   name: "auth",
+
   initialState,
+
   reducers: {
-    // 2. Use the PayloadAction type to declare the contents of `action.payload`
     addUser: (state, action) => {
-      state.user = action.payload;
+      state.user = action.payload.user;
+      state.token =
+        action.payload.accessToken ||
+        state.token;
+
       state.isAuthenticated = true;
       state.isLoading = false;
     },
+
     removeUser: (state) => {
       state.user = null;
+      state.token = null;
       state.isAuthenticated = false;
       state.isLoading = false;
+
+      localStorage.removeItem("accessToken");
+    },
+
+    setAuthLoading: (state, action) => {
+      state.isLoading = action.payload;
     },
   },
 });
 
-export const { addUser, removeUser } = authSlice.actions;
+export const {
+  addUser,
+  removeUser,
+  setAuthLoading,
+} = authSlice.actions;
+
 export default authSlice.reducer;
