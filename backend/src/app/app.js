@@ -34,6 +34,12 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
+
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'Backend is running on Vercel!' });
+});
+
 // api routes
 app.use("/api/auth", authRoutes)
 app.use("/api/products", productRoutes)
