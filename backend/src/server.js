@@ -5,6 +5,8 @@ const PORT = config.PORT || 5000
 
 await connectDB()
 
-app.listen(PORT, () => {
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
     console.log(`Server is running on http:localhost:${PORT}`)
 })
+}
